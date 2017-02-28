@@ -1,9 +1,9 @@
-from keras.layers import merge, Input
+from keras.layers import merge, Input, Lambda, Cropping2D
 from keras.layers import Dense, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D
 from keras.layers import BatchNormalization
 from keras.models import Model
-
+from keras.preprocessing.image import ImageDataGenerator
 
 import datahandler
 
@@ -78,12 +78,19 @@ def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2))
     return x
 
 
-def ResNet50(include_top=True, weights='imagenet'):
-    # Determine proper input shape
-    input_shape = (224, 224, 3)
+def resize(image):
+    import tensorflow
+    return tensorflow.image.resize_images(image, (224, 224))
 
-    img_input = Input(shape=input_shape)
-    x = ZeroPadding2D((3, 3))(img_input)
+
+def resnet_notop():
+    image_input = Input(shape=(160, 320, 3))
+
+    x = Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(160, 320, 3), output_shape=(160, 320, 3))(image_input)
+    x = Cropping2D(cropping=((50, 20), (0, 0)))(x)
+    x = Lambda(resize)(x)
+
+    x = ZeroPadding2D((3, 3))(x)
     x = Convolution2D(64, 7, 7, subsample=(2, 2), name='conv1')(x)
     x = BatchNormalization(axis=3, name='bn_conv1')(x)
     x = Activation('relu')(x)
@@ -111,11 +118,7 @@ def ResNet50(include_top=True, weights='imagenet'):
 
     x = AveragePooling2D((7, 7), name='avg_pool')(x)
 
-    if include_top:
-        x = Flatten()(x)
-        x = Dense(1000, activation='softmax', name='fc1000')(x)
-
-    model = Model(img_input, x)
+    model = Model(image_input, x)
     # load weights
     model.load_weights("resnet50_weights_tf.h5")
 
@@ -123,19 +126,23 @@ def ResNet50(include_top=True, weights='imagenet'):
 
 
 def transfer():
-    transfer_model = ResNet50(include_top=False)
+    transfer_model = resnet_notop()
 
-    for layer in transfer_model.layers[:176]:
+    for layer in transfer_model.layers[:175]:
         layer.trainable = False
 
     x = Flatten()(transfer_model.output)
     x = Dense(1)(x) # steering angle regression
     model = Model(transfer_model.input, output=x)
 
-    X_train, y_train = datahandler.get()
+    train_samples, validation_samples = datahandler.split_data()
+
+    train_generator = datahandler.generator(train_samples)
+    validation_generator = datahandler.generator(validation_samples)
 
     model.compile(loss='mse', optimizer='adam')
-    model.fit(X_train, y_train, validation_split=0.2, shuffle=True, verbose=1, nb_epoch=5)
+    model.fit_generator(train_generator, samples_per_epoch=len(train_samples)*4,
+                        validation_data=validation_generator, nb_epoch=1, nb_val_samples=len(validation_samples))
     model.save('transfer.h5')
 
 transfer()

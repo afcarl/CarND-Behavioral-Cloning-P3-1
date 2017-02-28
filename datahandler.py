@@ -2,6 +2,8 @@ import os
 import csv
 import cv2
 import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
 
 DEFAULT_FILENAME = "samples/driving_log.csv"
 DEFAULT_IMG_DIR = "samples/IMG"
@@ -15,30 +17,54 @@ def augment(image, steering_angle):
 
 
 def read_driving_log(filename=DEFAULT_FILENAME):
+    samples = []
     with open(filename) as log:
         reader = csv.reader(log)
         for entry in reader:
-            image_name = os.path.join(DEFAULT_IMG_DIR, os.path.basename(entry[0]))
-            image_name_left = os.path.join(DEFAULT_IMG_DIR, os.path.basename(entry[1]))
-            image_name_right = os.path.join(DEFAULT_IMG_DIR, os.path.basename(entry[2]))
-            image = cv2.resize(cv2.imread(image_name), dsize=(224,224)) #
-            image_left = cv2.resize(cv2.imread(image_name_left), dsize=(224,224))
-            image_right = cv2.resize(cv2.imread(image_name_right), dsize=(224,224))
-            steering_angle = float(entry[3])
-            yield image, steering_angle, image_left, steering_angle + DEFAULT_ANGLE_CORRECTION, image_right, steering_angle - DEFAULT_ANGLE_CORRECTION
+            samples.append(entry)
+    return samples
 
 
-def get():
+def get_images(entry):
     images = []
     angles = []
-    for image, steering_angle, image_left, steering_left, image_right, steering_right  in read_driving_log():
-        images.append(image)
-        angles.append(steering_angle)
-        images.append(image_left)
-        angles.append(steering_left)
-        images.append(image_right)
-        angles.append(steering_right)
-        reverse_image, reverse_angle = augment(image, steering_angle)
-        images.append(reverse_image)
-        angles.append(reverse_angle)
-    return np.array(images), np.array(angles)
+
+    image_center = cv2.imread(os.path.join(DEFAULT_IMG_DIR, os.path.basename(entry[0])))
+    steering_angle = float(entry[3])
+
+    image_left = cv2.imread(os.path.join(DEFAULT_IMG_DIR, os.path.basename(entry[1])))
+    steering_angle_left = steering_angle + DEFAULT_ANGLE_CORRECTION
+
+    image_right = cv2.imread(os.path.join(DEFAULT_IMG_DIR, os.path.basename(entry[2])))
+    steering_angle_right = steering_angle - DEFAULT_ANGLE_CORRECTION
+
+    reverse_image, reverse_angle = augment(image_center, steering_angle)
+
+    images.extend([image_center, image_left, image_right, reverse_image])
+    angles.extend([steering_angle, steering_angle_left, steering_angle_right, reverse_angle])
+
+    return images, angles
+
+
+def split_data():
+    samples = read_driving_log()
+    return train_test_split(samples, test_size=0.2)
+
+
+def generator(samples, batch_size=32):
+    num_of_samples = len(samples)
+
+    while 1:
+        for offset in range(0, num_of_samples, batch_size):
+            batch = samples[offset:offset + batch_size]
+            images = []
+            angles = []
+            for entry in batch:
+                entry_images, entry_angles = get_images(entry)
+                images.extend(entry_images)
+                angles.extend(entry_angles)
+
+            X_train = np.array(images)
+            Y_train = np.array(angles)
+
+            yield shuffle(X_train, Y_train)
