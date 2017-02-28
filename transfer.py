@@ -4,6 +4,7 @@ from keras.layers import Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePool
 from keras.layers import BatchNormalization
 from keras.models import Model
 
+
 import datahandler
 
 

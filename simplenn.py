@@ -18,11 +18,9 @@ model.add(Dense(120))
 model.add(Dense(84))
 model.add(Dense(1))
 
-#model.load_weights('model.h5')
+# model.load_weights('model.h5')
 model.compile(loss='mse', optimizer='adam')
-model.fit(X_train, y_train, validation_split=0.2, shuffle=True, verbose=2, nb_epoch=20)
+model.fit(X_train, y_train, validation_split=0.2, shuffle=True, verbose=1, nb_epoch=5)
 model.save('model.h5')
 
 exit()
-
-
