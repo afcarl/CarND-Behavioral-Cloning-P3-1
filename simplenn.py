@@ -24,6 +24,6 @@ validation_generator = datahandler.generator(validation_samples)
 
 model.compile(loss='mse', optimizer='adam')
 model.fit_generator(train_generator, samples_per_epoch=len(train_samples) * 4,
-                    validation_data=validation_generator, nb_epoch=1, nb_val_samples=len(validation_samples) * 4)
+                    validation_data=validation_generator, nb_epoch=10, nb_val_samples=len(validation_samples) * 4)
 model.save('model.h5')
 
