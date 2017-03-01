@@ -3,7 +3,6 @@ from keras.layers import Dense, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D
 from keras.layers import BatchNormalization
 from keras.models import Model
-from keras.preprocessing.image import ImageDataGenerator
 
 import datahandler
 
@@ -142,7 +141,7 @@ def transfer():
 
     model.compile(loss='mse', optimizer='adam')
     model.fit_generator(train_generator, samples_per_epoch=len(train_samples)*4,
-                        validation_data=validation_generator, nb_epoch=1, nb_val_samples=len(validation_samples))
+                        validation_data=validation_generator, nb_epoch=1, nb_val_samples=len(validation_samples)*4)
     model.save('transfer.h5')
 
 transfer()
