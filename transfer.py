@@ -82,66 +82,57 @@ def resize(image):
     return tensorflow.image.resize_images(image, (224, 224))
 
 
-def resnet_notop():
-    image_input = Input(shape=(160, 320, 3))
+image_input = Input(shape=(160, 320, 3))
 
-    x = Lambda(lambda img: img / 255.0 - 0.5)(image_input)
-    x = Cropping2D(cropping=((50, 20), (0, 0)))(x)
-    x = Lambda(resize)(x)
+x = Lambda(lambda img: img / 255.0 - 0.5)(image_input)
+x = Cropping2D(cropping=((50, 20), (0, 0)))(x)
+x = Lambda(resize)(x)
 
-    x = ZeroPadding2D((3, 3))(x)
-    x = Convolution2D(64, 7, 7, subsample=(2, 2), name='conv1')(x)
-    x = BatchNormalization(axis=3, name='bn_conv1')(x)
-    x = Activation('relu')(x)
-    x = MaxPooling2D((3, 3), strides=(2, 2))(x)
+x = ZeroPadding2D((3, 3))(x)
+x = Convolution2D(64, 7, 7, subsample=(2, 2), name='conv1')(x)
+x = BatchNormalization(axis=3, name='bn_conv1')(x)
+x = Activation('relu')(x)
+x = MaxPooling2D((3, 3), strides=(2, 2))(x)
 
-    x = conv_block(x, 3, [64, 64, 256], stage=2, block='a', strides=(1, 1))
-    x = identity_block(x, 3, [64, 64, 256], stage=2, block='b')
-    x = identity_block(x, 3, [64, 64, 256], stage=2, block='c')
+x = conv_block(x, 3, [64, 64, 256], stage=2, block='a', strides=(1, 1))
+x = identity_block(x, 3, [64, 64, 256], stage=2, block='b')
+x = identity_block(x, 3, [64, 64, 256], stage=2, block='c')
 
-    x = conv_block(x, 3, [128, 128, 512], stage=3, block='a')
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='b')
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='c')
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='d')
+x = conv_block(x, 3, [128, 128, 512], stage=3, block='a')
+x = identity_block(x, 3, [128, 128, 512], stage=3, block='b')
+x = identity_block(x, 3, [128, 128, 512], stage=3, block='c')
+x = identity_block(x, 3, [128, 128, 512], stage=3, block='d')
 
-    x = conv_block(x, 3, [256, 256, 1024], stage=4, block='a')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='b')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='c')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='d')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='e')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='f')
+x = conv_block(x, 3, [256, 256, 1024], stage=4, block='a')
+x = identity_block(x, 3, [256, 256, 1024], stage=4, block='b')
+x = identity_block(x, 3, [256, 256, 1024], stage=4, block='c')
+x = identity_block(x, 3, [256, 256, 1024], stage=4, block='d')
+x = identity_block(x, 3, [256, 256, 1024], stage=4, block='e')
+x = identity_block(x, 3, [256, 256, 1024], stage=4, block='f')
 
-    x = conv_block(x, 3, [512, 512, 2048], stage=5, block='a')
-    x = identity_block(x, 3, [512, 512, 2048], stage=5, block='b')
-    x = identity_block(x, 3, [512, 512, 2048], stage=5, block='c')
+x = conv_block(x, 3, [512, 512, 2048], stage=5, block='a')
+x = identity_block(x, 3, [512, 512, 2048], stage=5, block='b')
+x = identity_block(x, 3, [512, 512, 2048], stage=5, block='c')
 
-    x = AveragePooling2D((7, 7), name='avg_pool')(x)
+x = AveragePooling2D((7, 7), name='avg_pool')(x)
 
-    model = Model(image_input, x)
-    # load weights
-    model.load_weights("resnet50_weights_tf.h5")
+resnet = Model(image_input, x)
+# load weights
+resnet.load_weights("resnet50_weights_tf.h5")
 
-    return model
+for layer in resnet.layers[:175]:
+    layer.trainable = False
 
+x = Flatten()(resnet.output)
+x = Dense(1)(x)  # steering angle regression
+model = Model(resnet.input, output=x)
 
-def transfer():
-    transfer_model = resnet_notop()
+train_samples, validation_samples = datahandler.split_data()
 
-    for layer in transfer_model.layers[:175]:
-        layer.trainable = False
+train_generator = datahandler.generator(train_samples)
+validation_generator = datahandler.generator(validation_samples)
 
-    x = Flatten()(transfer_model.output)
-    x = Dense(1)(x) # steering angle regression
-    model = Model(transfer_model.input, output=x)
-
-    train_samples, validation_samples = datahandler.split_data()
-
-    train_generator = datahandler.generator(train_samples)
-    validation_generator = datahandler.generator(validation_samples)
-
-    model.compile(loss='mse', optimizer='adam')
-    model.fit_generator(train_generator, samples_per_epoch=len(train_samples)*4,
-                        validation_data=validation_generator, nb_epoch=1, nb_val_samples=len(validation_samples)*4)
-    model.save('transfer.h5')
-
-transfer()
+model.compile(loss='mse', optimizer='adam')
+model.fit_generator(train_generator, samples_per_epoch=len(train_samples) * 4,
+                    validation_data=validation_generator, nb_epoch=1, nb_val_samples=len(validation_samples) * 4)
+model.save('transfer.h5')
