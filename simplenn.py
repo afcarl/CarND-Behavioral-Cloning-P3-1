@@ -1,3 +1,5 @@
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+
 import datahandler
 
 from keras.models import Sequential
@@ -23,7 +25,15 @@ train_generator = datahandler.generator(train_samples)
 validation_generator = datahandler.generator(validation_samples)
 
 model.compile(loss='mse', optimizer='adam')
-model.fit_generator(train_generator, samples_per_epoch=len(train_samples) * 4,
-                    validation_data=validation_generator, nb_epoch=10, nb_val_samples=len(validation_samples) * 4)
+checkpoint = ModelCheckpoint('model.{epoch:02d}-{val_loss:.2f}.h5', monitor='val_loss', verbose=0, save_best_only=True,
+                             save_weights_only=False, mode='auto', period=1)
+early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=2, verbose=0, mode='auto')
+
+model.fit_generator(train_generator,
+                    samples_per_epoch=len(train_samples) * 4,
+                    validation_data=validation_generator,
+                    nb_epoch=10,
+                    nb_val_samples=len(validation_samples) * 4,
+                    callbacks= [checkpoint, early_stopping])
 model.save('model.h5')
 
