@@ -84,8 +84,7 @@ def resize(image):
 
 image_input = Input(shape=(160, 320, 3))
 
-x = Lambda(lambda img: img / 255.0 - 0.5)(image_input)
-x = Cropping2D(cropping=((50, 20), (0, 0)))(x)
+x = Cropping2D(cropping=((50, 20), (0, 0)))(image_input)
 x = Lambda(resize)(x)
 
 x = ZeroPadding2D((3, 3))(x)
@@ -117,7 +116,6 @@ x = identity_block(x, 3, [512, 512, 2048], stage=5, block='c')
 x = AveragePooling2D((7, 7), name='avg_pool')(x)
 
 resnet = Model(image_input, x)
-# load weights
 resnet.load_weights("resnet50_weights_tf.h5")
 
 for layer in resnet.layers[:175]:
