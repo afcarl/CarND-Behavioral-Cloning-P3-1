@@ -82,14 +82,11 @@ def resize(image):
     return tensorflow.image.resize_images(image, (224, 224))
 
 
-def normalize(image):
-    return (image / 255.0) - 0.5
-
 def resnet_notop():
     image_input = Input(shape=(160, 320, 3))
 
-    x = Lambda(normalize, input_shape=(160, 320, 3), output_shape=(160, 320, 3))(image_input)
-    x = Cropping2D(cropping=((50, 20), (0, 0)))(x)
+    x = Lambda(lambda i: i / 255.0 - 0.5, output_shape=(160, 320, 3))(image_input)
+    x = Cropping2D(cropping=((50, 20), (0, 0)))(image_input)
     x = Lambda(resize)(x)
 
     x = ZeroPadding2D((3, 3))(x)
