@@ -32,7 +32,7 @@ early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=2, verb
 model.fit_generator(train_generator,
                     samples_per_epoch=len(train_samples) * 4,
                     validation_data=validation_generator,
-                    nb_epoch=10,
+                    nb_epoch=100,
                     nb_val_samples=len(validation_samples) * 4,
                     callbacks= [checkpoint, early_stopping])
 model.save('model.h5')

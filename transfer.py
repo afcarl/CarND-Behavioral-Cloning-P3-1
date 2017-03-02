@@ -1,3 +1,4 @@
+from keras.callbacks import ModelCheckpoint, EarlyStopping
 from keras.layers import merge, Input, Lambda, Cropping2D
 from keras.layers import Dense, Activation, Flatten
 from keras.layers import Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D
@@ -84,7 +85,8 @@ def resize(image):
 
 image_input = Input(shape=(160, 320, 3))
 
-x = Cropping2D(cropping=((50, 20), (0, 0)))(image_input)
+x = Lambda(lambda img: img / 255.0 - 0.5)(image_input)
+x = Cropping2D(cropping=((50, 20), (0, 0)))(x)
 x = Lambda(resize)(x)
 
 x = ZeroPadding2D((3, 3))(x)
@@ -130,7 +132,15 @@ train_samples, validation_samples = datahandler.split_data()
 train_generator = datahandler.generator(train_samples)
 validation_generator = datahandler.generator(validation_samples)
 
+checkpoint = ModelCheckpoint('model.{epoch:02d}-{val_loss:.2f}.h5', monitor='val_loss', verbose=0, save_best_only=True,
+                             save_weights_only=False, mode='auto', period=1)
+early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=2, verbose=0, mode='auto')
+
 model.compile(loss='mse', optimizer='adam')
-model.fit_generator(train_generator, samples_per_epoch=len(train_samples) * 4,
-                    validation_data=validation_generator, nb_epoch=1, nb_val_samples=len(validation_samples) * 4)
+model.fit_generator(train_generator,
+                    samples_per_epoch=len(train_samples) * 4,
+                    validation_data=validation_generator,
+                    nb_epoch=1,
+                    nb_val_samples=len(validation_samples) * 4,
+                    callbacks=[checkpoint, early_stopping])
 model.save('transfer.h5')
